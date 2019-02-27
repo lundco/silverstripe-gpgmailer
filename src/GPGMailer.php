@@ -106,26 +106,25 @@ class GPGMailer Extends Email
     public function sendPlain()
     {
         // If the subject line contains extended characters, we must encode it
-        $subject = Convert::xml2raw($this->getSubject());
-        $this->setSubject('=?UTF-8?B?' . base64_encode($subject) . '?=');
+        $subject = Convert::xml2raw($this->getSwiftMessage()->getSubject());
+        $this->getSwiftMessage()->setSubject('=?UTF-8?B?' . base64_encode($subject) . '?=');
 
-        // Make the plain text part
-        if (!$this->getSwiftMessage()->getChildren()) {
-            $this->getSwiftMessage()->setContentType('text/plain; charset=utf-8');
-        }
+        $this->getSwiftMessage()->setMaxLineLength(0);
 
-        // Encoding forced to 7bit
-        $this->getSwiftMessage()->getHeaders()->addTextHeader('Content-Transfer-Encoding', '7bit');
+        $this->getSwiftMessage()->setContentType('text/plain');
 
+        $plainEncoder = new Swift_Mime_ContentEncoder_PlainContentEncoder('7bit');
+
+        $this->getSwiftMessage()->setEncoder($plainEncoder);
 
         // GPG encryption and signing if necessary
         if ($this->sign) {
-            $plainContent = $this->gpg->encryptAndSign($this->getBody());
+            $plainContent = $this->gpg->encryptAndSign($this->getSwiftMessage()->getBody());
         }else {
-            $plainContent = $this->gpg->encrypt($this->getBody());
+            $plainContent = $this->gpg->encrypt($this->getSwiftMessage()->getBody());
         }
 
-        $this->setBody($plainContent);
+        $this->getSwiftMessage()->setBody($plainContent);
 
         return Injector::inst()->get(Mailer::class)->send($this);
     }
